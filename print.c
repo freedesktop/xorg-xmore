@@ -265,15 +265,15 @@ XFontSet GetPrintTextFontSet(const char *appname, Display *pdpy, long dpi)
     }
 
     if (!fontset)
-        Error(("XCreateFontSet() failure.\n"));
+        Error(("GetPrintTextFontSet: XCreateFontSet() failure.\n"));
     return fontset;
 }
 
-void DoPrint(const char *programname,
-             Widget textsource, Widget toplevel,
-             Display *pdpy, XPContext pcontext,
-             XtCallbackProc pdpyDestroyCB,
-             const char *jobtitle, const char *toFile)
+void DoPrintTextSource(const char *programname,
+                       Widget textsource, Widget toplevel,
+                       Display *pdpy, XPContext pcontext,
+                       XtCallbackProc pdpyDestroyCB,
+                       const char *jobtitle, const char *toFile)
 {
     long               dpi = 0;
     int                n;
@@ -313,7 +313,7 @@ void DoPrint(const char *programname,
 
     n = 0;
     XtSetArg(args[n], XawNlayoutMode, XawPrintLAYOUTMODE_DRAWABLEAREA); n++;
-    apd->printshell = CreatePrintShell(toplevel, apd->pscreen, "print", args, n);
+    apd->printshell = CreatePrintShell(toplevel, apd->pscreen, "printshell", args, n);
 
     n = 0;
     XtSetArg(args[n], XtNresizable,            True);            n++;
@@ -324,6 +324,7 @@ void DoPrint(const char *programname,
 
 #ifdef PRINT_PAGEHEADER
     n = 0;
+    XtSetArg(args[n], XtNinternational,        True);            n++;
     XtSetArg(args[n], XtNfromHoriz,            NULL);            n++;
     XtSetArg(args[n], XtNfromVert,             NULL);            n++;
     XtSetArg(args[n], XtNtop,                  XtChainTop);      n++;
@@ -335,12 +336,13 @@ void DoPrint(const char *programname,
     apd->content.pageheaderlabel = XtCreateManagedWidget("pageinfo", labelWidgetClass, apd->content.form, args, n);
 #endif /* PRINT_PAGEHEADER */
 
+    font_extents = XExtentsOfFontSet(textfontset);
+
     n = 0;
+    XtSetArg(args[n], XtNinternational,    True);                         n++;
     XtSetArg(args[n], XtNtextSource,       textsource);                   n++;
     XtSetArg(args[n], XtNscrollHorizontal, XawtextScrollNever);           n++;
     XtSetArg(args[n], XtNscrollVertical,   XawtextScrollNever);           n++;
-
-    font_extents = XExtentsOfFontSet(textfontset);
 
 /* Usually I would expect that using |XtNfromVert, apd->content.pageheaderlabel|
  * would be the correct way to place the text widget with the main content below
@@ -358,6 +360,7 @@ void DoPrint(const char *programname,
 #endif
     XtSetArg(args[n], XtNfontSet,          textfontset);                  n++;
     apd->content.text = XtCreateManagedWidget("text", asciiTextWidgetClass, apd->content.form, args, n);
+
     /* Disable the caret - that is not needed for printing */
     XawTextDisplayCaret(apd->content.text, False);
     

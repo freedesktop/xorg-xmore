@@ -36,12 +36,12 @@ in this Software without prior written authorization from The Open Group.
 #include <X11/XprintUtil/xprintutil.h>
 
 /* Prototypes */
-void DoPrint(const char *programname,
-             Widget textsource,
-             Widget toplevel, 
-             Display *pdpy, XPContext pcontext,
-             XtCallbackProc printDisplayDestroyCallback,
-             const char *jobTitle,
-             const char *toFile);
+void DoPrintTextSource(const char *programname,
+                       Widget textsource,
+                       Widget toplevel, 
+                       Display *pdpy, XPContext pcontext,
+                       XtCallbackProc printDisplayDestroyCallback,
+                       const char *jobTitle,
+                       const char *toFile);
 
 #endif /* !XMORE_PRINT_H */

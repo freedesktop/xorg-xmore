@@ -164,11 +164,11 @@ printOKXtProc(Widget w, XtPointer client_data, XtPointer callData)
      * because it is used for the job title AND the page headers... */
     sprintf(printJobNameBuffer, "XMore print job %s", viewFileName);
 
-    DoPrint(ProgramName,
-            textsource, toplevel,
-            pdcs->pdpy, pdcs->pcontext, printshellDestroyXtProc,
-            printJobNameBuffer,
-            pdcs->printToFile?pdcs->printToFileName:NULL);
+    DoPrintTextSource(ProgramName,
+                      textsource, toplevel,
+                      pdcs->pdpy, pdcs->pcontext, printshellDestroyXtProc,
+                      printJobNameBuffer,
+                      pdcs->printToFile?pdcs->printToFileName:NULL);
 
     XtPopdown(printdialog_shell);
 }
@@ -247,6 +247,7 @@ int main( int argc, char *argv[] )
 
   ProgramName = argv[0];
 
+  XtSetLanguageProc(NULL, NULL, NULL);
   toplevel = XtOpenApplication(&app, "XMore",
                                options, XtNumber(options), 
                                &argc, argv, fallback_resources,
