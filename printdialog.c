@@ -53,7 +53,11 @@ in this Software without prior written authorization from The Open Group.
 
 #define Error(x) { printf x ; exit(EXIT_FAILURE); }
 #define Assertion(expr, msg) { if (!(expr)) { Error msg } }
-#define Log(x)   { if(True) printf x; }
+#ifdef DEBUG
+#  define Log(x)   { if(True)  printf x; }
+#else
+#  define Log(x)   { if(False) printf x; }
+#endif /* DEBUG */
 
 /* Local prototypes */
 static void     do_beep(PrintDialogWidget pdw);
@@ -304,7 +308,7 @@ printCancelXtProc(Widget w, XtPointer client_data, XtPointer callData)
     printSetupClose(pdw);
 
     if (pdp->cancel_callback) {
-        Log(("printCancelXtProc: calling callback"));
+        Log(("printCancelXtProc: calling callback\n"));
         XtCallCallbackList((Widget)pdw, pdp->cancel_callback, NULL);
     }
 }
@@ -323,7 +327,7 @@ printDialogDestXtProc(Widget w, XtPointer client_data, XtPointer callData)
     }
     else
     {
-        Log(("printDialogDestXtProc: ERROR: Unknown widget."));
+        Log(("printDialogDestXtProc: ERROR: Unknown widget.\n"));
     }
 
     updateWidgetStates(pdw);
@@ -430,7 +434,6 @@ void buildFileDialog(PrintDialogWidget pdw)
                                                (Widget)pdw, NULL, 0);
     n = 0;
     XtSetArg(args[n], XtNvalue, pdp->filename?pdp->filename:""); n++;  
-    XtSetArg(args[n], XtNlabel, "Select Filename:");             n++;  
     pdp->selectFile.dialog = XtCreateManagedWidget("dialog", dialogWidgetClass,
                                                    pdp->selectFile.shell, args, n);
     XawDialogAddButton(pdp->selectFile.dialog, "Accept", printFileSelectedXtProc, pdw);
@@ -609,8 +612,6 @@ Widget buildPrintSetupDialog(PrintDialogWidget pdw)
     XtSetArg(args[n], XtNresizable,           True);                        n++;
     XtSetArg(args[n], XtNforceColumns,        True);                        n++;
     XtSetArg(args[n], XtNdefaultColumns,      1);                           n++;
-    XtSetArg(args[n], XtNfromHoriz,           NULL);                        n++;
-    XtSetArg(args[n], XtNfromVert,            NULL);                        n++;
     XtSetArg(args[n], XtNsensitive,           canChangePaperSize);          n++;
     XtSetArg(args[n], XtNlist,                pdp->widget_paperlist);       n++;
     XtSetArg(args[n], XtNwidth,               DEFAULT_WIDTH);               n++;
@@ -620,8 +621,6 @@ Widget buildPrintSetupDialog(PrintDialogWidget pdw)
     XtSetArg(args[n], XtNresizable,           True);                        n++;
     XtSetArg(args[n], XtNforceColumns,        True);                        n++;
     XtSetArg(args[n], XtNdefaultColumns,      1);                           n++;
-    XtSetArg(args[n], XtNfromHoriz,           pdp->setup.paperlist);        n++;
-    XtSetArg(args[n], XtNfromVert,            NULL);                        n++;
     XtSetArg(args[n], XtNsensitive,           canChangeResolution);         n++;
     XtSetArg(args[n], XtNlist,                pdp->widget_resolutionlist);  n++;
     XtSetArg(args[n], XtNwidth,               DEFAULT_WIDTH);               n++;
@@ -631,8 +630,6 @@ Widget buildPrintSetupDialog(PrintDialogWidget pdw)
     XtSetArg(args[n], XtNresizable,           True);                        n++;
     XtSetArg(args[n], XtNforceColumns,        True);                        n++;
     XtSetArg(args[n], XtNdefaultColumns,      1);                           n++;
-    XtSetArg(args[n], XtNfromHoriz,           pdp->setup.resolutionlist);   n++;
-    XtSetArg(args[n], XtNfromVert,            NULL);                        n++;
     XtSetArg(args[n], XtNsensitive,           canChangeOrientation);        n++;
     XtSetArg(args[n], XtNlist,                pdp->widget_orientationlist); n++;
     XtSetArg(args[n], XtNwidth,               DEFAULT_WIDTH);               n++;
@@ -642,27 +639,20 @@ Widget buildPrintSetupDialog(PrintDialogWidget pdw)
     XtSetArg(args[n], XtNresizable,           True);                        n++;
     XtSetArg(args[n], XtNforceColumns,        True);                        n++;
     XtSetArg(args[n], XtNdefaultColumns,      1);                           n++;
-    XtSetArg(args[n], XtNfromHoriz,           pdp->setup.orientationlist);  n++;
-    XtSetArg(args[n], XtNfromVert,            NULL);                        n++;
     XtSetArg(args[n], XtNsensitive,           canChangePlex);               n++;
     XtSetArg(args[n], XtNlist,                pdp->widget_plexlist);        n++;
     XtSetArg(args[n], XtNwidth,               DEFAULT_WIDTH);               n++;
     pdp->setup.plexlist = XtCreateManagedWidget("plexlist", listWidgetClass, listform, args, n);
 
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,           NULL);                        n++;
-    XtSetArg(args[n], XtNfromVert,            pdp->setup.paperlist);        n++;
     XtSetArg(args[n], XtNborderWidth,         0);                           n++;
     XtSetArg(args[n], XtNresizable,           False);                       n++;
     XtSetArg(args[n], XtNjustify,             XtJustifyRight);              n++;
     XtSetArg(args[n], XtNwidth,               DEFAULT_WIDTH);               n++;
-    XtSetArg(args[n], XtNlabel,               "Job Copies:");               n++;
     XtSetArg(args[n], XtNsensitive,           canChangeJobCopies);          n++;
     pdp->setup.jobcopieslabel = XtCreateManagedWidget("jobcopieslabel", labelWidgetClass, listform, args, n);
 
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,           pdp->setup.jobcopieslabel);   n++;
-    XtSetArg(args[n], XtNfromVert,            pdp->setup.paperlist);        n++;
     XtSetArg(args[n], XtNstring,              "1");                         n++;
     XtSetArg(args[n], XtNresizable,           True);                        n++;
     XtSetArg(args[n], XtNeditType,            XawtextEdit);                 n++;
@@ -671,16 +661,10 @@ Widget buildPrintSetupDialog(PrintDialogWidget pdw)
     XtAddCallback(pdp->setup.jobcopies, XtNpositionCallback, printSetupJobCopiesXtProc, pdw);
 
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,       NULL);     n++;
-    XtSetArg(args[n], XtNfromVert,        listform); n++;
-    XtSetArg(args[n], XtNlabel,           "OK");     n++;
     pdp->setup.ok = XtCreateManagedWidget("ok", commandWidgetClass, pdp->setup.form, args, n);
     XtAddCallback(pdp->setup.ok, XtNcallback, printSetupOKXtProc, pdw);
 
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,       pdp->setup.ok);    n++;
-    XtSetArg(args[n], XtNfromVert,        listform);                   n++;
-    XtSetArg(args[n], XtNlabel,           "Cancel");                   n++;
     pdp->setup.cancel = XtCreateManagedWidget("cancel", commandWidgetClass, pdp->setup.form, args, n);
     XtAddCallback(pdp->setup.cancel, XtNcallback, printSetupCancelXtProc, pdw);
 
@@ -805,7 +789,7 @@ printerSelectionPrinterSelectedXtProc(Widget w, XtPointer client_data, XtPointer
 
     list_index = lrs->list_index;
     if (list_index == XAW_LIST_NONE) {
-        Log(("printerSelectionPrinterSelectedXtProc: Nothing selected."));
+        Log(("printerSelectionPrinterSelectedXtProc: Nothing selected.\n"));
         return;
     }
     
@@ -915,25 +899,17 @@ Bool buildPrinterSelectionDialog(PrintDialogWidget  pdw)
     XtSetArg(args[n], XtNresizable,        True);                    n++;
     XtSetArg(args[n], XtNforceColumns,     True);                    n++;
     XtSetArg(args[n], XtNdefaultColumns,   1);                       n++;
-    XtSetArg(args[n], XtNfromHoriz,        NULL);                    n++;
-    XtSetArg(args[n], XtNfromVert,         NULL);                    n++;
     XtSetArg(args[n], XtNlist,             pdp->widget_printerlist); n++;
     XtSetArg(args[n], XtNwidth,            DEFAULT_WIDTH);           n++;
     pdp->selectPrinter.list = XtCreateManagedWidget("list", listWidgetClass, pdp->selectPrinter.form, args, n);
     XtAddCallback(pdp->selectPrinter.list, XtNcallback, printerSelectionPrinterSelectedXtProc, pdw);
 
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,        NULL);                    n++;
-    XtSetArg(args[n], XtNfromVert,         pdp->selectPrinter.list); n++;
-    XtSetArg(args[n], XtNlabel,            "OK");                    n++;
     XtSetArg(args[n], XtNsensitive,        False);                   n++;
     pdp->selectPrinter.ok = XtCreateManagedWidget("ok", commandWidgetClass, pdp->selectPrinter.form, args, n);
     XtAddCallback(pdp->selectPrinter.ok, XtNcallback, printerSelectionOKXtProc, pdw);
 
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,        pdp->selectPrinter.ok);   n++;
-    XtSetArg(args[n], XtNfromVert,         pdp->selectPrinter.list); n++;
-    XtSetArg(args[n], XtNlabel,            "Cancel");                n++;
     pdp->selectPrinter.cancel = XtCreateManagedWidget("cancel", commandWidgetClass, pdp->selectPrinter.form, args, n);
     XtAddCallback(pdp->selectPrinter.cancel, XtNcallback, printerSelectionCancelXtProc, pdw);
 
@@ -1005,18 +981,13 @@ createprintdialogchildren(Widget w)
     pdp->main.innerform = XtCreateManagedWidget("innerform", formWidgetClass, pdp->main.form, args, n);
 
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,       NULL);                     n++;
-    XtSetArg(args[n], XtNfromVert,        NULL);                     n++;
     XtSetArg(args[n], XtNborderWidth,     0);                        n++;
     XtSetArg(args[n], XtNresizable,       False);                    n++;
     XtSetArg(args[n], XtNjustify,         XtJustifyRight);           n++;
     XtSetArg(args[n], XtNwidth,           DEFAULT_WIDTH);            n++;
-    XtSetArg(args[n], XtNlabel,           "Printer Description:");   n++;
     pdp->main.desclabel = XtCreateManagedWidget("desclabel", labelWidgetClass, pdp->main.innerform, args, n);
 
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,       pdp->main.desclabel);      n++;
-    XtSetArg(args[n], XtNfromVert,        NULL);                     n++;
     XtSetArg(args[n], XtNborderWidth,     0);                        n++;
     XtSetArg(args[n], XtNresizable,       False);                    n++;
     XtSetArg(args[n], XtNjustify,         XtJustifyLeft);            n++;
@@ -1025,27 +996,19 @@ createprintdialogchildren(Widget w)
     pdp->main.desc = XtCreateManagedWidget("desc", labelWidgetClass, pdp->main.innerform, args, n);
 
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,       pdp->main.desc);           n++;
-    XtSetArg(args[n], XtNfromVert,        NULL);                     n++;
     XtSetArg(args[n], XtNsensitive,       has_default_printer);      n++;
-    XtSetArg(args[n], XtNlabel,           "Printer info...");        n++;
     pdp->main.info = XtCreateManagedWidget("info", commandWidgetClass, pdp->main.innerform, args, n);
   /*
     XtAddCallback(pdp->main.info, XtNcallback, printerInfoXtProc, pdw);
   */
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,       NULL);                     n++;
-    XtSetArg(args[n], XtNfromVert,        pdp->main.desclabel);      n++;
     XtSetArg(args[n], XtNborderWidth,     0);                        n++;
     XtSetArg(args[n], XtNresizable,       False);                    n++;
     XtSetArg(args[n], XtNjustify,         XtJustifyRight);           n++;
     XtSetArg(args[n], XtNwidth,           DEFAULT_WIDTH);            n++;
-    XtSetArg(args[n], XtNlabel,           "Printer Name:");          n++;
     pdp->main.namelabel = XtCreateManagedWidget("namelabel", labelWidgetClass, pdp->main.innerform, args, n);
 
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,       pdp->main.namelabel);      n++;
-    XtSetArg(args[n], XtNfromVert,        pdp->main.desclabel);      n++;
     XtSetArg(args[n], XtNborderWidth,     0);                        n++;
     XtSetArg(args[n], XtNresizable,       False);                    n++;
     XtSetArg(args[n], XtNjustify,         XtJustifyLeft);            n++;
@@ -1054,28 +1017,20 @@ createprintdialogchildren(Widget w)
     pdp->main.name = XtCreateManagedWidget("name", labelWidgetClass, pdp->main.innerform, args, n);
 
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,       pdp->main.name);           n++;
-    XtSetArg(args[n], XtNfromVert,        pdp->main.desclabel);      n++;
-    XtSetArg(args[n], XtNlabel,           "Select Printer...");      n++;
     pdp->main.selectprinter = XtCreateManagedWidget("selectprinter", commandWidgetClass, pdp->main.innerform, args, n);
     XtAddCallback(pdp->main.selectprinter, XtNcallback, printSelectPrinterXtProc, pdw);
 
     /* Line: "File selection" */
 
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,       NULL);                     n++;
-    XtSetArg(args[n], XtNfromVert,        pdp->main.namelabel);      n++;
     XtSetArg(args[n], XtNborderWidth,     0);                        n++;
     XtSetArg(args[n], XtNresizable,       False);                    n++;
     XtSetArg(args[n], XtNjustify,         XtJustifyRight);           n++;
     XtSetArg(args[n], XtNwidth,           DEFAULT_WIDTH);            n++;
-    XtSetArg(args[n], XtNlabel,           "File Name:");             n++;
     XtSetArg(args[n], XtNsensitive,       False);                    n++;
     pdp->main.filenamelabel = XtCreateManagedWidget("filenamelabel", labelWidgetClass, pdp->main.innerform, args, n);
 
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,       pdp->main.filenamelabel);  n++;
-    XtSetArg(args[n], XtNfromVert,        pdp->main.namelabel);      n++;
     XtSetArg(args[n], XtNborderWidth,     0);                        n++;
     XtSetArg(args[n], XtNresizable,       False);                    n++;
     XtSetArg(args[n], XtNjustify,         XtJustifyLeft);            n++;
@@ -1085,26 +1040,17 @@ createprintdialogchildren(Widget w)
     pdp->main.filename = XtCreateManagedWidget("filename", labelWidgetClass, pdp->main.innerform, args, n);
 
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,       pdp->main.filename);       n++;
-    XtSetArg(args[n], XtNfromVert,        pdp->main.namelabel);      n++;
     XtSetArg(args[n], XtNsensitive,       False);                    n++;
-    XtSetArg(args[n], XtNlabel,           "Select File...");         n++;
     pdp->main.selectfile = XtCreateManagedWidget("selectfile", commandWidgetClass, pdp->main.innerform, args, n);
     XtAddCallback(pdp->main.selectfile, XtNcallback, printSelectFileXtProc, pdw);
 
     /* Line: Misc (Print destination toggles, copy-count etc.)*/
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,       NULL);                     n++;
-    XtSetArg(args[n], XtNfromVert,        pdp->main.filenamelabel);  n++;
-    XtSetArg(args[n], XtNlabel,           "Print to Printer");       n++;
     XtSetArg(args[n], XtNstate,           True);                     n++;
     pdp->main.printtoprinter = XtCreateManagedWidget("printtoprinter", toggleWidgetClass, pdp->main.innerform, args, n);
     XtAddCallback(pdp->main.printtoprinter, XtNcallback, printDialogDestXtProc, pdw);
 
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,       pdp->main.printtoprinter); n++;
-    XtSetArg(args[n], XtNfromVert,        pdp->main.filenamelabel);  n++;
-    XtSetArg(args[n], XtNlabel,           "Print to File");          n++;
     XtSetArg(args[n], XtNstate,           False);                    n++;
     pdp->main.printtofile = XtCreateManagedWidget("printtofile", toggleWidgetClass, pdp->main.innerform, args, n);
     XtAddCallback(pdp->main.printtofile, XtNcallback, printDialogDestXtProc, pdw);
@@ -1112,25 +1058,16 @@ createprintdialogchildren(Widget w)
     /* End-of-Inner-Form-Content */
 
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,       NULL);                      n++;
-    XtSetArg(args[n], XtNfromVert,        pdp->main.innerform);       n++;
-    XtSetArg(args[n], XtNlabel,           "Print");                   n++;
     XtSetArg(args[n], XtNsensitive,       has_default_printer);       n++;
     pdp->main.ok = XtCreateManagedWidget("ok", commandWidgetClass, pdp->main.form, args, n);
     XtAddCallback(pdp->main.ok, XtNcallback, printOKXtProc, pdw);
 
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,       pdp->main.ok);              n++;
-    XtSetArg(args[n], XtNfromVert,        pdp->main.innerform);       n++;
-    XtSetArg(args[n], XtNlabel,           "Setup...");                n++;
     XtSetArg(args[n], XtNsensitive,       has_default_printer);       n++;
     pdp->main.setup = XtCreateManagedWidget("setup", commandWidgetClass, pdp->main.form, args, n);
     XtAddCallback(pdp->main.setup, XtNcallback, printSetupXtProc, pdw);
 
     n = 0;
-    XtSetArg(args[n], XtNfromHoriz,       pdp->main.setup);           n++;
-    XtSetArg(args[n], XtNfromVert,        pdp->main.innerform);       n++;
-    XtSetArg(args[n], XtNlabel,           "Cancel");                  n++;
     pdp->main.cancel = XtCreateManagedWidget("cancel", commandWidgetClass, pdp->main.form, args, n);
     XtAddCallback(pdp->main.cancel, XtNcallback, printCancelXtProc, pdw);
 }

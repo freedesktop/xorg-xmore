@@ -39,8 +39,6 @@ in this Software without prior written authorization from The Open Group.
 #include <stdio.h>
 #include <stdlib.h>
 
-#define PRINT_PAGEHEADER 1
-
 static Widget
 CreatePrintShell(Widget    videoshell,
                  Screen   *pscreen, 
@@ -131,22 +129,10 @@ long CountPages(Widget textWidget)
 
     /* ... and move to the top of the file... */
     XtCallActionProc(textWidget, "beginning-of-file", NULL, NULL, 0);
+    
+    Log(("CountPages() found %ld pages.\n", numpages))
 
     return numpages;
-}
-
-static
-int GetCurrPageNum(Widget printshell)
-{
-    Cardinal n;
-    Arg      args[2];
-    int      pagenum = -666; /* bah! */
-    
-    n = 0;
-    XtSetArg(args[n], XawNcurrPageNumInJob, &pagenum); n++;
-    XtGetValues(printshell, args, n);
-
-    return pagenum;
 }
 
 static void 
@@ -159,12 +145,13 @@ PageSetupCB(Widget widget, XtPointer client_data, XtPointer call_data)
     Log(("--> PageSetupCB\n"));
 
     if (!psp->last_page_in_job) {
-        int  currpage = GetCurrPageNum(pshell);
-#ifdef PRINT_PAGEHEADER
-        char buffer[256]; 
+        int  currpage;
+        char buffer[256];
+
+        XtVaGetValues(pshell, XawNcurrPageNumInJob, &currpage, NULL);
+
         sprintf(buffer, "Title: %s / Page: %d/%d", p->jobtitle, currpage, p->numpages);
         XtVaSetValues(apd->content.pageheaderlabel, XtNlabel, buffer, NULL);
-#endif /* PRINT_PAGEHEADER */
 
         /* Note: XawPrintShell's pagecount starts with '1'
          * (=first page is page no. '1') */
@@ -213,7 +200,7 @@ void FinishPrinting(AppPrintData *p)
 
     /* ... and then get rid of the display */
     if (p->pcontext != None) {
-      XpDestroyContext(p->pdpy, p->pcontext);
+        XpDestroyContext(p->pdpy, p->pcontext);
     }
     XtCloseDisplay(p->pdpy);
 
@@ -245,15 +232,21 @@ XFontSet GetPrintTextFontSet(const char *appname, Display *pdpy, long dpi)
     int          missing_charset_count_return;
     char        *def_string_return;
     int          i;
-    long         font_size;
     
-    /* Scale font size with DPI */
-    font_size = (40L * dpi) / 300L;
-    
-    sprintf(fontname, "-adobe-courier-medium-r-normal--%ld-*-%ld-%ld-*-*,"
-                      "-*-*-*-*-*-*-%ld-*-%ld-%ld-*-*",
-                      font_size, dpi, dpi,
-                      font_size, dpi, dpi);
+    sprintf(fontname, /* Default font for CDE */
+                      "-dt-interface user-medium-r-normal-s*-*-120-%ld-%ld-*-*,"
+                      /* Default font */
+                      "-adobe-courier-medium-r-normal--*-120-%ld-%ld-*-*,"
+                      /* Default font for Linux/Japanese locales (ja_JP.SJIS) */
+                      "-watanabe-mincho-medium-r-normal--*-120-%ld-%ld-*-*,"
+                      "-wadalab-gothic-medium-r-normal--*-120-%ld-%ld-*-*,"
+                      /* Fallback */
+                      "-*-*-*-*-*--*-120-%ld-%ld-*-*",
+                      dpi, dpi,
+                      dpi, dpi,
+                      dpi, dpi,
+                      dpi, dpi,
+                      dpi, dpi);
     fontset = XCreateFontSet(pdpy, fontname,
                              &missing_charset_list_return,
                              &missing_charset_count_return,
@@ -322,7 +315,6 @@ void DoPrintTextSource(const char *programname,
 
     textfontset = GetPrintTextFontSet(apd->programname, pdpy, dpi);
 
-#ifdef PRINT_PAGEHEADER
     n = 0;
     XtSetArg(args[n], XtNinternational,        True);            n++;
     XtSetArg(args[n], XtNfromHoriz,            NULL);            n++;
@@ -334,7 +326,6 @@ void DoPrintTextSource(const char *programname,
     XtSetArg(args[n], XtNlabel,                "Page: n/n");     n++;
     XtSetArg(args[n], XtNjustify,              XtJustifyRight);  n++;
     apd->content.pageheaderlabel = XtCreateManagedWidget("pageinfo", labelWidgetClass, apd->content.form, args, n);
-#endif /* PRINT_PAGEHEADER */
 
     font_extents = XExtentsOfFontSet(textfontset);
 
