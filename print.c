@@ -41,7 +41,8 @@ in this Software without prior written authorization from The Open Group.
 
 static Widget
 CreatePrintShell(Widget    videoshell,
-                 Screen   *pscreen, 
+                 Screen   *pscreen,
+                 Visual   *pvisual,
                  String    printshell_name,
                  ArgList   args,
                  Cardinal  numargs)
@@ -53,6 +54,9 @@ CreatePrintShell(Widget    videoshell,
     Display *pdpy = XDisplayOfScreen(pscreen);
     int      dummyc = 0;
     String   dummys = "";
+    Cardinal shell_n;
+    Arg      shell_args[5];
+
     XtGetApplicationNameAndClass(XtDisplay(videoshell), 
                                  &videoname, &videoclass);
 
@@ -62,11 +66,15 @@ CreatePrintShell(Widget    videoshell,
                         NULL, 0,
                         &dummyc, &dummys);
 
-    pappshell = XtVaAppCreateShell(videoname, videoclass,
+    shell_n = 0;
+    XtSetArg(shell_args[shell_n], XtNscreen, pscreen); shell_n++;
+    if (pvisual) {
+        XtSetArg(shell_args[shell_n], XtNvisual, pvisual); shell_n++;
+    }
+    pappshell = XtAppCreateShell(videoname, videoclass,
                                    applicationShellWidgetClass,
                                    pdpy,
-                                   XtNscreen, pscreen,
-                                   NULL);
+                                   shell_args, shell_n);
     printshell = XtCreatePopupShell(printshell_name,
                                     xawPrintShellWidgetClass,
                                     pappshell, args, numargs);
@@ -224,7 +232,7 @@ void PrintEndJobCB(Widget pshell, XtPointer client_data, XtPointer call_data)
 }
 
 static
-XFontSet GetPrintTextFontSet(const char *appname, Display *pdpy, long dpi)
+XFontSet GetPrintTextFontSet(const char *appname, Display *pdpy, long dpi_x, long dpi_y)
 {
     XFontSet     fontset;
     char         fontname[1024];
@@ -242,11 +250,11 @@ XFontSet GetPrintTextFontSet(const char *appname, Display *pdpy, long dpi)
                       "-wadalab-gothic-medium-r-normal--*-120-%ld-%ld-*-*,"
                       /* Fallback */
                       "-*-*-*-*-*--*-120-%ld-%ld-*-*",
-                      dpi, dpi,
-                      dpi, dpi,
-                      dpi, dpi,
-                      dpi, dpi,
-                      dpi, dpi);
+                      dpi_x, dpi_y,
+                      dpi_x, dpi_y,
+                      dpi_x, dpi_y,
+                      dpi_x, dpi_y,
+                      dpi_x, dpi_y);
     fontset = XCreateFontSet(pdpy, fontname,
                              &missing_charset_list_return,
                              &missing_charset_count_return,
@@ -265,10 +273,12 @@ XFontSet GetPrintTextFontSet(const char *appname, Display *pdpy, long dpi)
 void DoPrintTextSource(const char *programname,
                        Widget textsource, Widget toplevel,
                        Display *pdpy, XPContext pcontext,
+                       XpuColorspaceRec *colorspace,
                        XtCallbackProc pdpyDestroyCB,
                        const char *jobtitle, const char *toFile)
 {
-    long               dpi = 0;
+    long               dpi_x = 0L,
+                       dpi_y = 0L;
     int                n;
     Arg                args[20];
     XFontSet           textfontset = NULL;
@@ -292,7 +302,7 @@ void DoPrintTextSource(const char *programname,
     XpSetContext(pdpy, pcontext);   
 
     /* Get default printer resolution */   
-    if (XpuGetResolution(pdpy, pcontext, &dpi) != 1) {
+    if (XpuGetResolution(pdpy, pcontext, &dpi_x, &dpi_y) != 1) {
         fprintf(stderr, "%s: No default resolution for printer.\n", apd->programname);
         XpuClosePrinterDisplay(pdpy, pcontext);
         return;
@@ -310,14 +320,18 @@ void DoPrintTextSource(const char *programname,
      * |XawPrintLAYOUTMODE_PAGESIZE| are used. */
     XtSetArg(args[n], XtNgeometry,    "+0+0");                          n++;
     XtSetArg(args[n], XawNlayoutMode, XawPrintLAYOUTMODE_DRAWABLEAREA); n++;
-    apd->printshell = CreatePrintShell(toplevel, apd->pscreen, "printshell", args, n);
-
+    if (colorspace) {
+        printf("Setting visual to id=0x%lx.\n", colorspace->visualinfo.visualid);
+    }
+    apd->printshell = CreatePrintShell(toplevel, apd->pscreen, 
+                                       (colorspace?(colorspace->visualinfo.visual):(NULL)),
+                                       "printshell", args, n);
     n = 0;
     XtSetArg(args[n], XtNresizable,            True);            n++;
     XtSetArg(args[n], XtNright,                XtChainRight);    n++;
     apd->content.form = XtCreateManagedWidget("form", formWidgetClass, apd->printshell, args, n);
 
-    textfontset = GetPrintTextFontSet(apd->programname, pdpy, dpi);
+    textfontset = GetPrintTextFontSet(apd->programname, pdpy, dpi_x, dpi_y);
 
     n = 0;
     XtSetArg(args[n], XtNinternational,        True);            n++;

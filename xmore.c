@@ -166,7 +166,8 @@ printOKXtProc(Widget w, XtPointer client_data, XtPointer callData)
 
     DoPrintTextSource(ProgramName,
                       textsource, toplevel,
-                      pdcs->pdpy, pdcs->pcontext, printshellDestroyXtProc,
+                      pdcs->pdpy, pdcs->pcontext, pdcs->colorspace,
+                      printshellDestroyXtProc,
                       printJobNameBuffer,
                       pdcs->printToFile?pdcs->printToFileName:NULL);
 

@@ -86,6 +86,7 @@ static String  *xppaperlist_to_widget_paperlist(XpuMediumSourceSizeList paperlis
 static String  *xpresolutionlist_to_widget_resolutionlist(XpuResolutionList reslist, int num_resolutions);
 static String  *xporientationlist_to_widget_orientationlist(XpuOrientationList orientationlist, int num_orientations);
 static String  *xpplexlist_to_widget_plexlist(XpuPlexList plexlist, int num_plex);
+static String  *xpcolorspacelist_to_widget_colorspacelist(XpuColorspaceList colorspacelist, int num_colorspaces);
 static void     printerSelectionPrinterSelectedXtProc(Widget w, XtPointer client_data, XtPointer callData);
 static void     printSelectPrinterXtProc(Widget w, XtPointer client_data, XtPointer callData);
 static void     printerSelectionClose(PrintDialogWidget  pdw);
@@ -258,6 +259,15 @@ printSetupOKXtProc(Widget w, XtPointer client_data, XtPointer callData)
     }
     XtFree((char *)lrs);
 
+    /* Set colorspace */
+    lrs = XawListShowCurrent(pdp->setup.colorspacelist);
+    if (lrs->list_index != XAW_LIST_NONE) {
+        Log(("selected colorspace is '%s'/'%d'\n", lrs->string, lrs->list_index));
+        Assertion(lrs->list_index < pdp->num_colorspaces, (("Error: lrs->list_index < pdp->num_colorspaces\n")));
+        pdp->selected_colorspace = &pdp->colorspacelist[lrs->list_index];
+    }
+    XtFree((char *)lrs);
+    
     printSetupClose(pdw);
 }
 
@@ -386,6 +396,7 @@ printOKXtProc(Widget w, XtPointer client_data, XtPointer callData)
         pdcs.pcontext        = pdp->pcontext;
         pdcs.printToFile     = pdp->printToFile;
         pdcs.printToFileName = (const char *)pdp->filename;
+        pdcs.colorspace      = pdp->selected_colorspace;
         XtCallCallbackList((Widget)pdw, pdp->ok_callback, &pdcs);
     }
 
@@ -500,6 +511,17 @@ void closePrinterConnection(PrintDialogWidget pdw, Bool closeDisplay)
         pdp->widget_plexlist = NULL;
     }
 
+    if (pdp->colorspacelist) {
+        XpuFreeColorspaceList(pdp->colorspacelist);
+        pdp->colorspacelist = NULL;
+    }  
+
+    if (pdp->widget_colorspacelist) {
+        free(pdp->widget_colorspacelist);
+        pdp->widget_colorspacelist = NULL;
+    }
+    pdp->selected_colorspace = NULL;
+
     if (pdp->pdpy) {
         if (closeDisplay) {
             XpuClosePrinterDisplay(pdp->pdpy, pdp->pcontext);
@@ -535,11 +557,13 @@ Bool openPrinterConnection(PrintDialogWidget pdw)
     pdp->resolutionlist  =       XpuGetResolutionList(pdp->pdpy, pdp->pcontext, &pdp->num_resolutions);
     pdp->orientationlist =      XpuGetOrientationList(pdp->pdpy, pdp->pcontext, &pdp->num_orientations);
     pdp->plexlist        =             XpuGetPlexList(pdp->pdpy, pdp->pcontext, &pdp->num_plex);  
+    pdp->colorspacelist  =       XpuGetColorspaceList(pdp->pdpy, pdp->pcontext, &pdp->num_colorspaces);  
 
     pdp->widget_paperlist       = xppaperlist_to_widget_paperlist(pdp->paperlist, pdp->num_papers);
     pdp->widget_resolutionlist  = xpresolutionlist_to_widget_resolutionlist(pdp->resolutionlist, pdp->num_resolutions);
     pdp->widget_orientationlist = xporientationlist_to_widget_orientationlist(pdp->orientationlist, pdp->num_orientations);
     pdp->widget_plexlist        = xpplexlist_to_widget_plexlist(pdp->plexlist, pdp->num_plex);
+    pdp->widget_colorspacelist  = xpcolorspacelist_to_widget_colorspacelist(pdp->colorspacelist, pdp->num_colorspaces);
 
     updateWidgetStates(pdw);
 
@@ -568,6 +592,7 @@ void destroyPrintSetupDialog(PrintDialogWidget pdw)
     pdp->setup.resolutionlist   = NULL;
     pdp->setup.orientationlist  = NULL;
     pdp->setup.plexlist         = NULL;
+    pdp->setup.colorspacelist   = NULL;
     pdp->setup.ok               = NULL;
     pdp->setup.cancel           = NULL;
 }
@@ -654,6 +679,15 @@ Widget buildPrintSetupDialog(PrintDialogWidget pdw)
     pdp->setup.plexlist = XtCreateManagedWidget("plexlist", listWidgetClass, listform, args, n);
 
     n = 0;
+    XtSetArg(args[n], XtNresizable,           True);                        n++;
+    XtSetArg(args[n], XtNforceColumns,        True);                        n++;
+    XtSetArg(args[n], XtNdefaultColumns,      1);                           n++;
+    XtSetArg(args[n], XtNsensitive,           True);                        n++;
+    XtSetArg(args[n], XtNlist,                pdp->widget_colorspacelist);  n++;
+    XtSetArg(args[n], XtNwidth,               DEFAULT_WIDTH);               n++;
+    pdp->setup.colorspacelist = XtCreateManagedWidget("colorspacelist", listWidgetClass, listform, args, n);
+    
+    n = 0;
     XtSetArg(args[n], XtNborderWidth,         0);                           n++;
     XtSetArg(args[n], XtNresizable,           False);                       n++;
     XtSetArg(args[n], XtNjustify,             XtJustifyRight);              n++;
@@ -726,24 +760,13 @@ String *xpresolutionlist_to_widget_resolutionlist(XpuResolutionList reslist, int
 {
     int     i;
     String *names;
-    char   *mem;
-    
-    /* Allocate a chunk of memory... */
-    mem = malloc((sizeof(String *)+32) * (num_resolutions+2));
 
-    /* ... which has enougth space for the list pointers... */
-    names = (String *)mem;
+    names = malloc(sizeof(String *) * (num_resolutions+1));
     if (!names)
-      return NULL;
-    
-    /* ... and the numbers (assuming one number isn't longer than 32-1 chars) */
-    mem += sizeof(String *) * (num_resolutions+2);
+        return NULL;
 
-    for(i = 0 ; i < num_resolutions ; i++) {
-        sprintf(mem, "%d", (int)reslist[i].dpi);
-        names[i] = mem;
-        mem += strlen(mem) + 1;
-    }
+    for(i = 0 ; i < num_resolutions ; i++)
+        names[i] = (char *)reslist[i].name;
 
     names[i] = NULL; /* Terminate the list */
 
@@ -780,6 +803,24 @@ String *xpplexlist_to_widget_plexlist(XpuPlexList plexlist, int num_plex)
 
     for(i = 0 ; i < num_plex ; i++)
       names[i] = (char *)plexlist[i].plex;
+
+    names[i] = NULL; /* Terminate the list */
+
+    return names;
+}
+
+static
+String *xpcolorspacelist_to_widget_colorspacelist(XpuColorspaceList colorspacelist, int num_colorspaces)
+{
+    int     i;
+    String *names;
+
+    names = malloc(sizeof(String *) * (num_colorspaces+1));
+    if(!names)
+      return NULL;
+
+    for(i = 0 ; i < num_colorspaces ; i++)
+      names[i] = (char *)colorspacelist[i].name;
 
     names[i] = NULL; /* Terminate the list */
 

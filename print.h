@@ -40,6 +40,7 @@ void DoPrintTextSource(const char *programname,
                        Widget textsource,
                        Widget toplevel, 
                        Display *pdpy, XPContext pcontext,
+                       XpuColorspaceRec *colorspace,
                        XtCallbackProc printDisplayDestroyCallback,
                        const char *jobTitle,
                        const char *toFile);
