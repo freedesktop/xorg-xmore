@@ -69,7 +69,7 @@ static void     printOKXtProc(Widget w, XtPointer client_data, XtPointer callDat
 static void     printSetupXtProc(Widget w, XtPointer client_data, XtPointer callData);
 static void     printFileSelectedXtProc(Widget w, XtPointer client_data, XtPointer callData);
 static void     buildFileDialog(PrintDialogWidget pdw);
-static void     closePrinterConnection(PrintDialogWidget  pdw);
+static void     closePrinterConnection(PrintDialogWidget  pdw, Bool closeDisplay);
 static Bool     openPrinterConnection(PrintDialogWidget  pdw);
 static void     destroyPrintSetupDialog(PrintDialogWidget pdw);
 static Widget   buildPrintSetupDialog(PrintDialogWidget pdw);
@@ -191,14 +191,13 @@ printSetupOKXtProc(Widget w, XtPointer client_data, XtPointer callData)
     PrintDialogWidget    pdw = (PrintDialogWidget)client_data;
     PrintDialogPart     *pdp = &pdw->printdialog;
     char                *s;
-    int                  c;
     XawListReturnStruct *lrs;    
     Log(("## printSetupOK: closing print setup!\n"));
     
     /* Set copy count (if the value is invalid beep and return to the user ) */
     XtVaGetValues(pdp->setup.jobcopies, XtNstring, &s, NULL);
     if (s) {
-        c = atoi(s);
+        int c = atoi(s);
         if (c < 1 || c > 999) {
             do_beep(pdw);
             XtVaSetValues(pdp->setup.jobcopies, XtNstring, "1", NULL);
@@ -271,20 +270,20 @@ printSetupJobCopiesXtProc(Widget w, XtPointer client_data, XtPointer callData)
     XtVaGetValues(pdp->setup.jobcopies, XtNstring, &string, NULL);
     if (string) {
         char *s;
-        int   c;
+        int   i;
         Bool  isValidNumber = True;
 
         /* First check for invalid characters... */
-        for( s = string ; (c = *s++) != '\0' ; s++ ) {
-            if (!isdigit(c)) {
+        for( s = string ; *s != '\0' ; s++ ) {
+            if (!isdigit(*s)) {
                 isValidNumber = False;
                 break;
             }
         }
         
         /* .. and the do a range check... */
-        c = atoi(string);
-        if (c < 1 || c > 999) {
+        i = atoi(string);
+        if (i < 1 || i > 999) {
             isValidNumber = False;
         }
         
@@ -426,7 +425,7 @@ void buildFileDialog(PrintDialogWidget pdw)
     int              n;
     Arg              args[20];
 
-    pdp->selectFile.shell = XtCreatePopupShell("shell",
+    pdp->selectFile.shell = XtCreatePopupShell("selectfile",
                                                transientShellWidgetClass,
                                                (Widget)pdw, NULL, 0);
     n = 0;
@@ -440,7 +439,7 @@ void buildFileDialog(PrintDialogWidget pdw)
 }
 
 static
-void closePrinterConnection(PrintDialogWidget  pdw)
+void closePrinterConnection(PrintDialogWidget pdw, Bool closeDisplay)
 { 
     PrintDialogPart *pdp = &pdw->printdialog;
     
@@ -490,7 +489,9 @@ void closePrinterConnection(PrintDialogWidget  pdw)
     }
 
     if (pdp->pdpy) {
-        XpuClosePrinterDisplay(pdp->pdpy, pdp->pcontext);
+        if (closeDisplay) {
+            XpuClosePrinterDisplay(pdp->pdpy, pdp->pcontext);
+        }
         pdp->pdpy     = NULL;
         pdp->pcontext = None;
     }
@@ -499,14 +500,14 @@ void closePrinterConnection(PrintDialogWidget  pdw)
 }
 
 static
-Bool openPrinterConnection(PrintDialogWidget  pdw)
+Bool openPrinterConnection(PrintDialogWidget pdw)
 {
     PrintDialogPart   *pdp = &pdw->printdialog;
 
     Log(("# openPrinterConnection\n"));
 
     /* Close any outstanding connection first... */
-    closePrinterConnection(pdw);
+    closePrinterConnection(pdw, True);
 
     if (!pdp->printer_name) {
         Log(("# error: openPrinterConnection: No printer name.\n"));
@@ -596,7 +597,7 @@ Widget buildPrintSetupDialog(PrintDialogWidget pdw)
 
     n = 0;
     XtSetArg(args[n], XtNallowShellResize, True); n++;
-    pdp->setup.popup = XtCreatePopupShell("popup", transientShellWidgetClass, (Widget)pdw, args, n);
+    pdp->setup.popup = XtCreatePopupShell("setup", transientShellWidgetClass, (Widget)pdw, args, n);
 
     n = 0;
     pdp->setup.form = XtCreateManagedWidget("form", formWidgetClass, pdp->setup.popup, args, n);
@@ -879,7 +880,7 @@ printerSelectionOKXtProc(Widget w, XtPointer client_data, XtPointer callData)
 
     /* Close any outstanding printer connection since user has selected
      * a different printer */
-    closePrinterConnection(pdw);
+    closePrinterConnection(pdw, True);
 
     printerSelectionClose(pdw);
     
@@ -905,7 +906,7 @@ Bool buildPrinterSelectionDialog(PrintDialogWidget  pdw)
 
     n = 0;
     XtSetArg(args[n], XtNallowShellResize, True);                    n++;
-    pdp->selectPrinter.popup = XtCreatePopupShell("popup", transientShellWidgetClass, (Widget)pdw, args, n);
+    pdp->selectPrinter.popup = XtCreatePopupShell("printerselection", transientShellWidgetClass, (Widget)pdw, args, n);
 
     n = 0;
     pdp->selectPrinter.form = XtCreateManagedWidget("form", formWidgetClass, pdp->selectPrinter.popup, args, n);
@@ -998,7 +999,7 @@ createprintdialogchildren(Widget w)
     
     n = 0;
     XtSetArg(args[n], XtNborderWidth,     0);                        n++;
-    pdp->main.form = XtCreateManagedWidget("form", formWidgetClass, (Widget)pdw, args, n);
+    pdp->main.form = XtCreateManagedWidget("main", formWidgetClass, (Widget)pdw, args, n);
 
     n = 0;
     pdp->main.innerform = XtCreateManagedWidget("innerform", formWidgetClass, pdp->main.form, args, n);
@@ -1365,11 +1366,36 @@ XawPrintDialogDestroy(Widget w)
 
     destroyPrintSetupDialog(pdw);
     destroyPrinterSelectionDialog(pdw);
-    closePrinterConnection(pdw);
+    closePrinterConnection(pdw, True);
     
     Log(("# XawPrintDialogDestroy: done.\n"));
 }
 
-
-
+/*
+ * Function:
+ *      XawPrintDialogClosePrinterConnection
+ *
+ * Parameters:
+ *      w            - Print Dialog Widget
+ *      closeDisplay - Boolean which decides whether |Display *|
+ *                     and |XPContext| should be disposed, too.
+ *
+ * Description:
+ *      The print display connection is owned by the print dialog
+ *      by default.
+ *      If the application wishes to close the display connection
+ *      to the print server, either to close it itself or force
+ *      a disconnection for other reasons this function can be used.
+ *
+ * Notes
+ *      1. PUBLIC API
+ *      2. After this function returns all resources returned by the
+ *         print dialog which are related to the status of the printer
+ *         connection are stale.
+ */
+void
+XawPrintDialogClosePrinterConnection(Widget w, Bool closeDisplay)
+{
+    closePrinterConnection((PrintDialogWidget)w, closeDisplay);
+}
 

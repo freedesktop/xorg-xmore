@@ -28,8 +28,14 @@ in this Software without prior written authorization from The Open Group.
 #ifndef XMORE_XMORE_H
 #define XMORE_XMORE_H 1
 
-/* Global vars */
-extern const char *ProgramName;  /* program name (from argv[0]) */
-extern const char *viewFileName; /* file to browse (from argv[1]) */
+#include <X11/Intrinsic.h>
+
+typedef struct {
+  Boolean  verbose;
+  XFontSet textfont;
+} XMoreResourceData, *XMoreResourceDataPtr;
+
+#define STANDARDFONT "-adobe-courier-medium-r-normal--12-*-*-*-*-*," \
+                      "-*-*-*-*-*-*-12-*-*-*-*-*"
 
 #endif /* !XMORE_XMORE_H */

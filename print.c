@@ -32,7 +32,6 @@ in this Software without prior written authorization from The Open Group.
 #define Assertion(expr, msg) { if (!(expr)) { Error msg } }
 #define Log(x)   { if(True) printf x; }
 
-#include "xmore.h"
 #include "print.h"
 #include <X11/Xaw/Form.h>
 #include <X11/Xaw/Label.h>
@@ -85,21 +84,23 @@ CreatePrintShell(Widget    videoshell,
 
 typedef struct
 {
-  Widget      toplevel;
-  Bool        isPrinting;
-  Widget      printshell;
+  const char       *programname;
+  Widget            toplevel;
+  Bool              isPrinting;
+  Widget            printshell;
   struct
   {
-      Widget form;
-      Widget pageheaderlabel;
-      Widget text;
+      Widget  form;
+      Widget  pageheaderlabel;
+      Widget  text;
   } content; /* content to print */
-  int         numpages;
-  Display    *pdpy;
-  Screen     *pscreen;
-  XPContext   pcontext;
-  void       *printtofile_handle;
-  const char *jobtitle;
+  int               numpages;
+  Display          *pdpy;
+  Screen           *pscreen;
+  XPContext         pcontext;
+  XtCallbackProc    pdpyDestroyCallback;
+  void             *printtofile_handle;
+  const char       *jobtitle;
 } AppPrintData;
 
 static AppPrintData  apdx;
@@ -182,11 +183,12 @@ PageSetupCB(Widget widget, XtPointer client_data, XtPointer call_data)
     }
 }
 
+static
 void FinishPrinting(AppPrintData *p)
 {
     if (p->printtofile_handle) {
         if (XpuWaitForPrintFileChild(p->printtofile_handle) != XPGetDocFinished) {
-            fprintf(stderr, "%s: Error while printing to file.\n", ProgramName);
+            fprintf(stderr, "%s: Error while printing to file.\n", apd->programname);
         }
         p->printtofile_handle = NULL;
     }   
@@ -196,8 +198,24 @@ void FinishPrinting(AppPrintData *p)
         p->printshell = NULL;
     }
   
-    /* |p->pdpy| and |p->pcontext| are destroyed when th
-     * print dialog widget gets destroyed. */
+    /* Two issues here:
+     * 1. The print display connection is owned by the print dialog
+     *    To avoid any problems with that use a callback back to the main
+     *    application which calls
+     *    |XawPrintDialogClosePrinterConnection(w, False)| to ask the
+     *    print dialog widget to close all print display resources and
+     *    disown the object.
+     * 2. We have to use XpDestroyContext() and XtCloseDisplay()
+     *    instead of XpuClosePrinterDisplay() to make libXt happy...
+     *
+     * Call callback... */
+    (*apd->pdpyDestroyCallback)(NULL, NULL, NULL); /* HACK! */
+
+    /* ... and then get rid of the display */
+    if (p->pcontext != None) {
+      XpDestroyContext(p->pdpy, p->pcontext);
+    }
+    XtCloseDisplay(p->pdpy);
 
     p->toplevel   = NULL;
     p->isPrinting = False;
@@ -218,32 +236,56 @@ void PrintEndJobCB(Widget pshell, XtPointer client_data, XtPointer call_data)
     FinishPrinting(p);
 }
 
-XFontStruct *GetPrintTextFont(Display *pdpy, long dpi)
+static
+XFontSet GetPrintTextFontSet(const char *appname, Display *pdpy, long dpi)
 {
-    XFontStruct *font;
+    XFontSet     fontset;
     char         fontname[1024];
+    char       **missing_charset_list_return;
+    int          missing_charset_count_return;
+    char        *def_string_return;
+    int          i;
+    long         font_size;
     
-    sprintf(fontname, "-adobe-courier-medium-r-normal--40-*-%ld-%ld-*-*-iso8859-1", dpi, dpi);
-    font = XLoadQueryFont(pdpy, fontname);
-    if (!font) {          
-        sprintf(fontname, "-*-*-*-*-*-*-*-160-%ld-%ld-*-*-iso8859-1", dpi, dpi);
-        font = XLoadQueryFont(pdpy, fontname);
+    /* Scale font size with DPI */
+    font_size = (40L * dpi) / 300L;
+    
+    sprintf(fontname, "-adobe-courier-medium-r-normal--%ld-*-%ld-%ld-*-*,"
+                      "-*-*-*-*-*-*-%ld-*-%ld-%ld-*-*",
+                      font_size, dpi, dpi,
+                      font_size, dpi, dpi);
+    fontset = XCreateFontSet(pdpy, fontname,
+                             &missing_charset_list_return,
+                             &missing_charset_count_return,
+                             &def_string_return);
+
+    for( i=0 ; i < missing_charset_count_return ; i++ ) {
+        fprintf(stderr, "%s: warning: font for charset %s is lacking.\n",
+                appname, missing_charset_list_return[i]);
     }
-    if (!font)
-        Error(("XLoadQueryFont failure.\n"));
-    return font;
+
+    if (!fontset)
+        Error(("XCreateFontSet() failure.\n"));
+    return fontset;
 }
 
-void DoPrint(Widget toplevel, Display *pdpy, XPContext pcontext, 
+void DoPrint(const char *programname,
+             Widget textsource, Widget toplevel,
+             Display *pdpy, XPContext pcontext,
+             XtCallbackProc pdpyDestroyCB,
              const char *jobtitle, const char *toFile)
 {
-    long         dpi = 0;
-    int          n;
-    Arg          args[20];
-    XFontStruct *textfont = NULL;
+    long               dpi = 0;
+    int                n;
+    Arg                args[20];
+    XFontSet           textfontset = NULL;
+    XFontSetExtents   *font_extents;
+    
+    apd->programname         = programname;
+    apd->pdpyDestroyCallback = pdpyDestroyCB;
   
     if (apd->isPrinting) {
-        fprintf(stderr, "%s: Already busy with printing.\n", ProgramName);
+        fprintf(stderr, "%s: Already busy with printing.\n", apd->programname);
         return;
     } 
         
@@ -258,7 +300,7 @@ void DoPrint(Widget toplevel, Display *pdpy, XPContext pcontext,
 
     /* Get default printer resolution */   
     if (XpuGetResolution(pdpy, pcontext, &dpi) != 1) {
-        fprintf(stderr, "%s: No default resolution for printer.\n", ProgramName);
+        fprintf(stderr, "%s: No default resolution for printer.\n", apd->programname);
         XpuClosePrinterDisplay(pdpy, pcontext);
         return;
     }
@@ -271,14 +313,14 @@ void DoPrint(Widget toplevel, Display *pdpy, XPContext pcontext,
 
     n = 0;
     XtSetArg(args[n], XawNlayoutMode, XawPrintLAYOUTMODE_DRAWABLEAREA); n++;
-    apd->printshell = CreatePrintShell(toplevel, apd->pscreen, "Print", args, n);
+    apd->printshell = CreatePrintShell(toplevel, apd->pscreen, "print", args, n);
 
     n = 0;
     XtSetArg(args[n], XtNresizable,            True);            n++;
     XtSetArg(args[n], XtNright,                XtChainRight);    n++;
     apd->content.form = XtCreateManagedWidget("form", formWidgetClass, apd->printshell, args, n);
 
-    textfont = GetPrintTextFont(pdpy, dpi);
+    textfontset = GetPrintTextFontSet(apd->programname, pdpy, dpi);
 
 #ifdef PRINT_PAGEHEADER
     n = 0;
@@ -287,17 +329,18 @@ void DoPrint(Widget toplevel, Display *pdpy, XPContext pcontext,
     XtSetArg(args[n], XtNtop,                  XtChainTop);      n++;
     XtSetArg(args[n], XtNright,                XtChainRight);    n++;
     XtSetArg(args[n], XtNresizable,            True);            n++;
-    XtSetArg(args[n], XtNfont,                 textfont);        n++; /* fontset would be better */
+    XtSetArg(args[n], XtNfontSet,              textfontset);     n++;
     XtSetArg(args[n], XtNlabel,                "Page: n/n");     n++;
     XtSetArg(args[n], XtNjustify,              XtJustifyRight);  n++;
     apd->content.pageheaderlabel = XtCreateManagedWidget("pageinfo", labelWidgetClass, apd->content.form, args, n);
 #endif /* PRINT_PAGEHEADER */
 
     n = 0;
-    XtSetArg(args[n], XtNtype,             XawAsciiFile);                 n++;
-    XtSetArg(args[n], XtNstring,           viewFileName);                 n++;
+    XtSetArg(args[n], XtNtextSource,       textsource);                   n++;
     XtSetArg(args[n], XtNscrollHorizontal, XawtextScrollNever);           n++;
     XtSetArg(args[n], XtNscrollVertical,   XawtextScrollNever);           n++;
+
+    font_extents = XExtentsOfFontSet(textfontset);
 
 /* Usually I would expect that using |XtNfromVert, apd->content.pageheaderlabel|
  * would be the correct way to place the text widget with the main content below
@@ -308,12 +351,12 @@ void DoPrint(Widget toplevel, Display *pdpy, XPContext pcontext,
 #ifdef WORKAROUND_FOR_SOMETHING_IS_WRONG
     XtSetArg(args[n], XtNtop,              XtChainTop);                   n++;
     XtSetArg(args[n], XtNright,            XtChainRight);                 n++;
-    XtSetArg(args[n], XtNvertDistance,     (textfont->ascent+textfont->descent+2)*2); n++;    
+    XtSetArg(args[n], XtNvertDistance,     (font_extents->max_logical_extent.height+2)*2); n++;    
 #else
     XtSetArg(args[n], XtNfromHoriz,        NULL);                         n++;
     XtSetArg(args[n], XtNfromVert,         apd->content.pageheaderlabel); n++;
 #endif
-    XtSetArg(args[n], XtNfont,             textfont);                     n++; /* fontset would be better */
+    XtSetArg(args[n], XtNfontSet,          textfontset);                  n++;
     apd->content.text = XtCreateManagedWidget("text", asciiTextWidgetClass, apd->content.form, args, n);
     /* Disable the caret - that is not needed for printing */
     XawTextDisplayCaret(apd->content.text, False);
@@ -335,7 +378,7 @@ void DoPrint(Widget toplevel, Display *pdpy, XPContext pcontext,
     apd->isPrinting = True;
 
     if (toFile) {
-        printf("%s: Printing to file '%s'...\n", ProgramName, toFile);
+        printf("%s: Printing to file '%s'...\n", apd->programname, toFile);
         apd->printtofile_handle = XpuStartJobToFile(pdpy, pcontext, toFile);
         if (!apd->printtofile_handle) {
             perror("XpuStartJobToFile failure");
@@ -345,7 +388,7 @@ void DoPrint(Widget toplevel, Display *pdpy, XPContext pcontext,
     }
     else
     {
-        printf("%s: Printing to printer...\n", ProgramName);
+        printf("%s: Printing to printer...\n", apd->programname);
         XpuStartJobToSpooler(pdpy);
     }
 }

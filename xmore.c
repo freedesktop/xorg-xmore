@@ -44,41 +44,129 @@ in this Software without prior written authorization from The Open Group.
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <limits.h>
 
 /* Turn a NULL pointer string into an empty string */
 #define NULLSTR(x) (((x)!=NULL)?(x):(""))
 
 #define Error(x) { printf x ; exit(EXIT_FAILURE); }
 #define Assertion(expr, msg) { if (!(expr)) { Error msg } }
-#define Log(x)   { if(True) printf x; }
+#define Log(x)   { if (userOptions.verbose) printf x; }
 
 /* Global vars */
-XtAppContext  app;
-Widget        printdialog_shell = NULL;
-Widget        printdialog       = NULL;
-Widget        toplevel;
-const char   *ProgramName;  /* program name (from argv[0]) */
-const char   *viewFileName; /* file to browse (from argv[1]) */
-char          printJobNameBuffer[1024];
+static Widget        printdialog_shell = NULL;
+static Widget        printdialog       = NULL;
+static Widget        toplevel          = NULL;
+static Widget        text              = NULL;
+static char          printJobNameBuffer[PATH_MAX+256];
+static const char   *ProgramName;  /* program name   (from argv[0]) */
+static const char   *viewFileName; /* file to browse (from argv[1]) */
+
+/* prototypes */
+static void quitAction(Widget w,  XEvent *event, String *params, Cardinal *num_params);
+static void quitXtProc(Widget w, XtPointer client_data, XtPointer callData);
+static void printAction(Widget w, XEvent *event, String *params, Cardinal *num_params);
+static void printXtProc(Widget w, XtPointer client_data, XtPointer callData);
+
+static XrmOptionDescRec options[] = {
+{
+  "-v", "*verbose", XrmoptionNoArg, (XPointer) "on" },
+};
+
+
+static XtActionsRec actions[] = {
+    { "quit",          quitAction      },
+    { "print",         printAction     }
+};
+
+/* See xmore.h */
+XMoreResourceData userOptions;
+
+#define Offset(field) XtOffsetOf(XMoreResourceData, field)
+
+XtResource resources[] = {
+  {"verbose", "Verbose", XtRBoolean, sizeof(Boolean),  Offset(verbose),  XtRImmediate, (XtPointer)False},
+  {"textfont", XtCFont,  XtRFontSet, sizeof(XFontSet), Offset(textfont), XtRString,    STANDARDFONT},
+};
+
+
+String fallback_resources[] = {
+#ifdef NOTYET
+    "*iconPixmap:    xmore32",
+    "*iconMask:      xmore32",
+#endif /* NOTYET */
+    "*textfont: " STANDARDFONT,
+    "*international: True", /* set this globally for ALL widgets to avoid wiered crashes */
+    "*text.Translations: #override \\n\\"
+        "\tCtrl<Key>S:     no-op(RingBell)\\n\\"
+        "\tCtrl<Key>R:     no-op(RingBell)\\n\\"
+        "\t<Key>space:     next-page()\\n\\"
+        "\t<Key>F:         next-page()\\n\\"
+        "\tCtrl<Key>B:     previous-page()\\n\\"
+        "\t<Key>B:         previous-page()\\n\\"
+        "\t<Key>K:         scroll-one-line-down()\\n\\"
+        "\t<Key>Y:         scroll-one-line-down()\\n\\"
+        "\t<Key>Return:    scroll-one-line-up()\\n\\"
+        "\t<Key>J:         scroll-one-line-up()\\n\\"
+        "\t<Key>E:         scroll-one-line-up()\\n\\"
+        "\t<Key>p:         print()\\n\\"
+        "\t<Key>q:         quit()\\n",
+    "*text.baseTranslations: #override \\n\\"
+        "\t<Key>space:     next-page()\\n\\"
+        "\t<Key>F:         next-page()\\n\\"
+        "\tCtrl<Key>B:     previous-page()\\n\\"
+        "\t<Key>K:         scroll-one-line-down()\\n\\"
+        "\t<Key>Y:         scroll-one-line-down()\\n\\"
+        "\t<Key>Return:    scroll-one-line-up()\\n\\"
+        "\t<Key>J:         scroll-one-line-up()\\n\\"
+        "\t<Key>E:         scroll-one-line-up()\\n\\"
+        "\t<Key>p:         print()\\n\\"
+        "\t<Key>q:         quit()\\n",
+    NULL,
+};
+
+static void
+quitAction(Widget w,  XEvent *event, String *params, Cardinal *num_params)
+{
+    XtAppSetExitFlag(XtWidgetToApplicationContext(w));
+}
 
 static void
 quitXtProc(Widget w, XtPointer client_data, XtPointer callData)
 {
-    XtAppSetExitFlag(app);
+    XtCallActionProc(w, "quit", NULL, NULL, 0);
+}
+
+static void
+printshellDestroyXtProc(Widget w, XtPointer client_data, XtPointer callData)
+{
+    XawPrintDialogClosePrinterConnection(printdialog, False);
 }
 
 static void
 printOKXtProc(Widget w, XtPointer client_data, XtPointer callData)
 {
     XawPrintDialogCallbackStruct *pdcs = (XawPrintDialogCallbackStruct *)callData;
+    Cardinal                      n;
+    Arg                           args[2];
+    Widget                        textsource;
 
     Log(("printOKXtProc: OK.\n"));
     
+    /* Get TextSource object */
+    n = 0;
+    XtSetArg(args[n], XtNtextSource, &textsource); n++;
+    XtGetValues(text, args, n);
+    
+    Assertion(textsource != NULL, (("printOKXtProc: textsource == NULL.\n")));
+   
     /* ||printJobNameBuffer| must live as long the print job prints
      * because it is used for the job title AND the page headers... */
     sprintf(printJobNameBuffer, "XMore print job %s", viewFileName);
 
-    DoPrint(toplevel, pdcs->pdpy, pdcs->pcontext,
+    DoPrint(ProgramName,
+            textsource, toplevel,
+            pdcs->pdpy, pdcs->pcontext, printshellDestroyXtProc,
             printJobNameBuffer,
             pdcs->printToFile?pdcs->printToFileName:NULL);
 
@@ -101,10 +189,16 @@ printCancelXtProc(Widget w, XtPointer client_data, XtPointer callData)
 static void
 printXtProc(Widget w, XtPointer client_data, XtPointer callData)
 {
+    XtCallActionProc(toplevel, "print", NULL, NULL, 0);
+}
+
+static void
+printAction(Widget w,  XEvent *event, String *params, Cardinal *num_params)
+{
   Dimension   width, height;
-  Position	x, y;
-  Widget       parent = toplevel;
-  puts("print!");
+  Position    x, y;
+  Widget      parent = toplevel;
+  Log(("print!\n"));
   
   if (!printdialog) {
     int n;
@@ -112,7 +206,7 @@ printXtProc(Widget w, XtPointer client_data, XtPointer callData)
 
     n = 0;
     XtSetArg(args[n], XtNallowShellResize, True); n++;
-    printdialog_shell = XtCreatePopupShell("shell",
+    printdialog_shell = XtCreatePopupShell("printdialogshell",
                                            transientShellWidgetClass,
                                            toplevel, args, n);
     n = 0;
@@ -144,8 +238,8 @@ printXtProc(Widget w, XtPointer client_data, XtPointer callData)
 
 int main( int argc, char *argv[] )
 {
+  XtAppContext app;
   Widget       form;
-  Widget       text;
   Widget       printbutton;
   Widget       quitbutton;
   int          n;
@@ -153,13 +247,21 @@ int main( int argc, char *argv[] )
 
   ProgramName = argv[0];
 
-  toplevel = XtAppInitialize(&app, "XMore", NULL, 0, &argc, argv, NULL, NULL, 0);
+  toplevel = XtOpenApplication(&app, "XMore",
+                               options, XtNumber(options), 
+                               &argc, argv, fallback_resources,
+                               sessionShellWidgetClass, NULL, ZERO);
 
   if (argc != 2)
   {
     printf("usage: %s [ x options ] filename\n", argv[0]);
     exit(EXIT_FAILURE);
   }
+
+  XtGetApplicationResources(toplevel, (XtPointer)&userOptions, resources, 
+                            XtNumber(resources), NULL, 0);
+ 
+  XtAppAddActions(app, actions, XtNumber(actions));
 
   viewFileName = argv[1];
 
@@ -168,10 +270,11 @@ int main( int argc, char *argv[] )
   n = 0;
   XtSetArg(args[n], XtNtype,             XawAsciiFile);            n++;
   XtSetArg(args[n], XtNstring,           viewFileName);            n++;
-  XtSetArg(args[n], XtNwidth,            500);                     n++;
-  XtSetArg(args[n], XtNheight,           600);                     n++;
-  XtSetArg(args[n], XtNscrollHorizontal, XawtextScrollWhenNeeded); n++;
+  XtSetArg(args[n], XtNwidth,            700);                     n++;
+  XtSetArg(args[n], XtNheight,           300);                     n++;
+  XtSetArg(args[n], XtNscrollHorizontal, XawtextScrollAlways);     n++;
   XtSetArg(args[n], XtNscrollVertical,   XawtextScrollAlways);     n++;
+  XtSetArg(args[n], XtNfontSet,          userOptions.textfont);    n++;
   text = XtCreateManagedWidget("text", asciiTextWidgetClass, form, args, n);
 
   n = 0;

@@ -78,6 +78,7 @@ extern WidgetClass printDialogWidgetClass;
 _XFUNCPROTOBEGIN
 
 /* Prototypes */
+void XawPrintDialogClosePrinterConnection(Widget w, Bool closeDisplay);
 
 _XFUNCPROTOEND
 

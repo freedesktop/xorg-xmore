@@ -1,0 +1,60 @@
+! XMore.ad
+
+! keyboard translations
+*text.Translations: #override\n\
+        Ctrl<Key>S:     no-op(RingBell)\n\
+        Ctrl<Key>R:     no-op(RingBell)\n\
+        <Key>space:     next-page()\n\
+        <Key>F:         next-page()\n\
+        Ctrl<Key>B:     previous-page()\n\
+        <Key>B:         previous-page()\n\
+        <Key>K:         scroll-one-line-down()\n\
+        <Key>Y:         scroll-one-line-down()\n\
+        <Key>Return:    scroll-one-line-up()\n\
+        <Key>J:         scroll-one-line-up()\n\
+        <Key>E:         scroll-one-line-up()\n\
+        <Key>p:         print()\n\
+        <Key>q:         quit()\n
+*text.baseTranslations: #override\n\
+        <Key>space:     next-page()\n\
+        <Key>F:         next-page()\n\
+        Ctrl<Key>B:     previous-page()\n\
+        <Key>K:         scroll-one-line-down()\n\
+        <Key>Y:         scroll-one-line-down()\n\
+        <Key>Return:    scroll-one-line-up()\n\
+        <Key>J:         scroll-one-line-up()\n\
+        <Key>E:         scroll-one-line-up()\n\
+        <Key>p:         print()\n\
+        <Key>q:         quit()\n
+
+! tip messages
+*quit.tip:  Quit application
+*print.tip: Print file
+
+! tip messages for print dialog
+*printdialog*main*ok.tip:                 Print
+*printdialog*main*cancel.tip:             Cancel printing
+*printdialog*main*setup.tip:              Configure printer options (page size, orientation, etc.)
+*printdialog*main*desclabel.tip:          Short description of printer
+*printdialog*main*desc.tip:               Short description of printer
+*printdialog*main*info.tip:               Display additional information about this printer
+*printdialog*main*namelabel.tip:          Name of selected printer
+*printdialog*main*name.tip:               Name of selected printer
+*printdialog*main*selectprinter.tip:      Select a different printer
+*printdialog*main*filenamelabel.tip:      File where the output should be stored
+*printdialog*main*filename.tip:           File where the output should be stored
+*printdialog*main*selectfile.tip:         Select file where the output should be stored
+*printdialog*main*printtoprinter.tip:     Send print job to printer
+*printdialog*main*printtofile.tip:        Save print job in a file
+*printdialog*setup*ok.tip:                Commit changes
+*printdialog*setup*cancel.tip:            Cancel and reset to defaults
+*printdialog*setup*paperlist.tip:         Select paper size
+*printdialog*setup*resolutionlist.tip:    Select page resolution
+*printdialog*setup*orientationlist.tip:   Select page orientation
+*printdialog*setup*plexlist.tip:          Select page plex mode (simplex, duplex, etc.)
+*printdialog*setup*jobcopieslabel.tip:    Set number of job copies
+*printdialog*setup*jobcopies.tip:         Set number of job copies
+*printdialog*printerselection*ok.tip:     Switch printer
+*printdialog*printerselection*cancel.tip: Cancel printer selection
+*printdialog*printerselection*list.tip:   Select printer name from list
+! EOF.
