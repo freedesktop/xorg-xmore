@@ -40,6 +40,10 @@ in this Software without prior written authorization from The Open Group.
 #include <X11/Xaw/AsciiText.h>
 #include <X11/Xaw/Dialog.h>
 
+#ifdef XKB
+#include <X11/extensions/XKBbells.h>
+#endif /* XKB */
+
 #include "printdialog.h"
 #include "printdialogprivates.h"
 #include "print.h"
@@ -95,6 +99,11 @@ static
 void do_beep(PrintDialogWidget pdw)
 {
     Log(("*** Beep!\n"));
+#ifdef XKB
+    XkbStdBell(XtDisplay((Widget)pdw), XtWindow((Widget)pdw), 0, XkbBI_MinorError);
+#else
+    XBell(XtDisplay((Widget)pdw), 0);
+#endif /* XKB */
 }
 
 /* Center popup (on parent, not on screen - which would be a bad idea
@@ -971,6 +980,12 @@ createprintdialogchildren(Widget w)
             pdp->printer_name   = strdup(pdp->printerlist[0].name);
             has_default_printer = True;
         }
+    }
+    else
+    {
+      XtAppWarning(XtWidgetToApplicationContext(w),
+                   "No Xprint servers could be found. "
+                   "Check whether the XPSERVERLIST environment variable contains any valid Xprint server(s).");
     }
     
     n = 0;

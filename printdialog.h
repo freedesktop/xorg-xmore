@@ -37,30 +37,14 @@ in this Software without prior written authorization from The Open Group.
 #include <X11/XprintUtil/xprintutil.h>
 
 /* Resources:
-
- Name		     Class		RepType		Default Value
- ----		     -----		-------		-------------
- background	     Background		Pixel		XtDefaultBackground
- borderColor	     BorderColor	Pixel		XtDefaultForeground
- borderWidth	     BorderWidth	Dimension	1
- destroyCallback     Callback		Pointer		NULL
- height		     Height		Dimension	computed at create
- icon		     Icon		Pixmap		0
- label		     Label		String		NULL
- mappedWhenManaged   MappedWhenManaged	Boolean		True
- sensitive	     Sensitive		Boolean		True
- value		     Value		String		NULL
- width		     Width		Dimension	computed at create
- x		     Position		Position	0
- y		     Position		Position	0
-
+   NOT WRITTEN YET
 */
 
 #define XtCIcon "Icon"
 #define XtNicon "icon"
 
-#define XawNOkCallback             "XawNOkCallback"
-#define XawNCancelCallback         "XawNCancelCallback"
+#define XawNOkCallback             "okCallback"
+#define XawNCancelCallback         "cancelCallback"
 
 typedef struct
 {
@@ -82,4 +66,4 @@ void XawPrintDialogClosePrinterConnection(Widget w, Bool closeDisplay);
 
 _XFUNCPROTOEND
 
-#endif /* _XawDialog_h */
+#endif /* !XMORE_PRINTDIALOG_H */
