@@ -32,6 +32,9 @@ in this Software without prior written authorization from The Open Group.
 #define Assertion(expr, msg) { if (!(expr)) { Error msg } }
 #define Log(x)   { if(True) printf x; }
 
+#ifdef XEDIT
+#include "xedit.h"
+#endif /* XEDIT */
 #include "print.h"
 #include <X11/Xaw/Form.h>
 #include <X11/Xaw/Label.h>
@@ -181,13 +184,36 @@ PageSetupCB(Widget widget, XtPointer client_data, XtPointer call_data)
 static
 void FinishPrinting(AppPrintData *p)
 {
+    char *scr;
+
     if (p->printtofile_handle) {
         if (XpuWaitForPrintFileChild(p->printtofile_handle) != XPGetDocFinished) {
-            fprintf(stderr, "%s: Error while printing to file.\n", apd->programname);
+            PrintMsg(("Error while printing to file.\n"));
         }
         p->printtofile_handle = NULL;
-    }   
+    }
+    
+    /* Job completed, check if there are any messages from the spooler command */
+    scr = XpGetOneAttribute(p->pdpy, p->pcontext, XPJobAttr, "xp-spooler-command-results");
+    if( scr )
+    {
+      if( strlen(scr) > 0 )
+      {
+        const char *msg = XpuCompoundTextToXmb(p->pdpy, scr);
+        if( msg )
+        {
+          PrintMsg(("Spooler command returned:\n%s", msg));
+          XpuFreeXmbString(msg);
+        }
+        else
+        {
+          PrintMsg(("Spooler command returned (unconverted):\n%s", scr));
+        }
+      }
 
+      XFree((void *)scr);
+    }
+    
     if (p->printshell) {
         XtDestroyWidget(p->printshell);
         p->printshell = NULL;
@@ -288,7 +314,7 @@ void DoPrintTextSource(const char *programname,
     apd->pdpyDestroyCallback = pdpyDestroyCB;
   
     if (apd->isPrinting) {
-        fprintf(stderr, "%s: Already busy with printing.\n", apd->programname);
+        PrintMsg(("Already busy with printing.\n"));
         return;
     } 
         
@@ -303,7 +329,7 @@ void DoPrintTextSource(const char *programname,
 
     /* Get default printer resolution */   
     if (XpuGetResolution(pdpy, pcontext, &dpi_x, &dpi_y) != 1) {
-        fprintf(stderr, "%s: No default resolution for printer.\n", apd->programname);
+        PrintMsg(("No default resolution for printer.\n"));
         XpuClosePrinterDisplay(pdpy, pcontext);
         return;
     }
@@ -390,17 +416,18 @@ void DoPrintTextSource(const char *programname,
     apd->isPrinting = True;
 
     if (toFile) {
-        printf("%s: Printing to file '%s'...\n", apd->programname, toFile);
+        PrintMsg(("Printing to file '%s'...\n", toFile));
         apd->printtofile_handle = XpuStartJobToFile(pdpy, pcontext, toFile);
         if (!apd->printtofile_handle) {
             perror("XpuStartJobToFile failure");
+            PrintMsg(("Printing failed: XpuStartJobToFile\n"));
             apd->isPrinting = False;
             return;
         }
     }
     else
     {
-        printf("%s: Printing to printer...\n", apd->programname);
+        PrintMsg(("Printing to printer...\n"));
         XpuStartJobToSpooler(pdpy);
     }
 }

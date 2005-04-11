@@ -44,6 +44,9 @@ in this Software without prior written authorization from The Open Group.
 #include <X11/extensions/XKBbells.h>
 #endif /* XKB */
 
+#ifdef XEDIT
+#include "xedit.h"
+#endif /* XEDIT */
 #include "printdialog.h"
 #include "printdialogprivates.h"
 #include "print.h"
@@ -1024,9 +1027,8 @@ createprintdialogchildren(Widget w)
     }
     else
     {
-      XtAppWarning(XtWidgetToApplicationContext(w),
-                   "No Xprint servers could be found. "
-                   "Check whether the XPSERVERLIST environment variable contains any valid Xprint server(s).");
+      PrintMsg(("No Xprint servers could be found.\n"
+                "Check whether the XPSERVERLIST environment variable contains any valid Xprint server(s).\n"));
     }
     
     n = 0;
