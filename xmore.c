@@ -53,6 +53,14 @@ in this Software without prior written authorization from The Open Group.
 #define Assertion(expr, msg) { if (!(expr)) { Error msg } }
 #define Log(x)   { if (userOptions.verbose) printf x; }
 
+#ifndef PATH_MAX
+# ifdef MAXPATHLEN
+#  define PATH_MAX MAXPATHLEN
+# else
+#  define PATH_MAX 1024		/* Good enough for most systems */
+# endif
+#endif
+
 /* Global vars */
 static Widget        printdialog_shell = NULL;
 static Widget        printdialog       = NULL;
