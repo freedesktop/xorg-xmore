@@ -21,8 +21,8 @@
 
 bin_PROGRAMS = xmore
 
-xmore_CFLAGS = $(DEP_CFLAGS) -DXMORE
-xmore_LDADD = $(DEP_LIBS)
+xmore_CFLAGS = $(XMORE_CFLAGS) -DXMORE
+xmore_LDADD = $(XMORE_LIBS)
 
 xmore_SOURCES =	\
         xmore.c \
