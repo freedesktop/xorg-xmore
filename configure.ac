@@ -22,7 +22,7 @@ dnl
 dnl Process this file with autoconf to create configure.
 
 AC_PREREQ([2.57])
-AC_INIT(xmore,[7.0], [xorg@freedesktop.org],xmore)
+AC_INIT(xmore,[0.99.0], [https://bugs.freedesktop.org/enter_bug.cgi?product=xorg],xmore)
 AM_INIT_AUTOMAKE([dist-bzip2])
 AM_MAINTAINER_MODE
 
@@ -42,5 +42,7 @@ fi
 
 AC_SUBST(XMORE_CFLAGS)
 AC_SUBST(XMORE_LIBS)
+
+XORG_RELEASE_VERSION
 
 AC_OUTPUT([Makefile])
