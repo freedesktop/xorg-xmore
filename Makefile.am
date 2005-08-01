@@ -39,7 +39,7 @@ xmore_SOURCES += \
         print.h
 endif
 
-dist_man_MANS = \
+dist_man1_MANS = \
         xmore.man
 
 # App default files  (*.ad)
