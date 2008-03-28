@@ -48,7 +48,7 @@ appdefaultdir = @appdefaultdir@
 
 
 APPDEFAULTFILES = \
-        XMore
+        app-defaults/XMore
 
 SUFFIXES = .ad
 
