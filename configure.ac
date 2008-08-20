@@ -34,12 +34,6 @@ AC_PROG_INSTALL
 
 # Checks for pkg-config packages
 PKG_CHECK_MODULES(XMORE, xaw7)
-if test "x$xaw_use_xprint" = "xyes" ; then
-   PKG_CHECK_MODULES(XPRINT_UTIL, xprintutil xp)
-
-   XMORE_CFLAGS="$XMORE_CFLAGS $XPRINT_UTIL_CFLAGS"
-   XMORE_LIBS="$XMORE_LIBS $XPRINT_UTIL_LIBS"
-fi
 
 AC_SUBST(XMORE_CFLAGS)
 AC_SUBST(XMORE_LIBS)
