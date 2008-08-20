@@ -33,7 +33,7 @@ AM_PROG_CC_C_O
 AC_PROG_INSTALL
 
 # Checks for pkg-config packages
-XAW_CHECK_XPRINT_SUPPORT(XMORE)
+PKG_CHECK_MODULES(XMORE, xaw7)
 if test "x$xaw_use_xprint" = "xyes" ; then
    PKG_CHECK_MODULES(XPRINT_UTIL, xprintutil xp)
 
