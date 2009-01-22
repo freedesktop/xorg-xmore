@@ -19,3 +19,7 @@ stamp-h1
 xmore
 xmore.1
 *~
+*.o
+xmore-*.tar.*
+ChangeLog
+tags

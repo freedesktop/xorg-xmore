@@ -73,17 +73,17 @@ static XtActionsRec actions[] = {
 };
 
 /* See xmore.h */
-XMoreResourceData userOptions;
+static XMoreResourceData userOptions;
 
 #define Offset(field) XtOffsetOf(XMoreResourceData, field)
 
-XtResource resources[] = {
+static XtResource resources[] = {
   {"verbose", "Verbose", XtRBoolean, sizeof(Boolean),  Offset(verbose),  XtRImmediate, (XtPointer)False},
   {"textfont", XtCFont,  XtRFontSet, sizeof(XFontSet), Offset(textfont), XtRString,    STANDARDFONT},
 };
 
 
-String fallback_resources[] = {
+static String fallback_resources[] = {
 #ifdef NOTYET
     "*iconPixmap:    xmore32",
     "*iconMask:      xmore32",
@@ -174,7 +174,7 @@ int main( int argc, char *argv[] )
   XtSetArg(args[n], XtNfromVert,        text);                   n++;
   XtSetArg(args[n], XtNlabel,           "Quit");      n++;
   quitbutton = XtCreateManagedWidget("quit", commandWidgetClass, form, args, n);
-  XtAddCallback(quitbutton, XtNcallback, quitXtProc, 0);
+  XtAddCallback(quitbutton, XtNcallback, quitXtProc, NULL);
   
   XtRealizeWidget(toplevel);
   

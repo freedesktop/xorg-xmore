@@ -28,4 +28,6 @@
 ! tip messages
 *quit.tip:  Quit application
 
+*international:		True
+
 ! EOF.
