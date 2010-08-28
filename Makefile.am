@@ -39,7 +39,7 @@ appdefaultdir = @appdefaultdir@
 dist_appdefault_DATA = \
         app-defaults/XMore
 
-EXTRA_DIST = xmore.sgml
+EXTRA_DIST = xmore.xml
 
 appmandir = $(APP_MAN_DIR)
 
