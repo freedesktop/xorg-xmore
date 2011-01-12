@@ -37,7 +37,6 @@ XORG_DEFAULT_OPTIONS
 
 AM_CONFIG_HEADER(config.h)
 
-AC_PROG_INSTALL
 
 # Checks for pkg-config packages
 PKG_CHECK_MODULES(XMORE, xaw7)
